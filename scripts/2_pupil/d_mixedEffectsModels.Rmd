@@ -1,0 +1,146 @@
+---
+title: "Mixed Effects Models"
+output: html_document
+---
+
+```{r load_libraries, echo = F, warning=FALSE, message=FALSE}
+rm(list=ls())
+
+# Load packages
+library(tidyr)
+library(plyr)
+library(dplyr)
+library(ggplot2)
+library(lmerTest)
+library(cowplot)
+
+asNumeric <- function(x) as.numeric(as.character(x))
+factorsNumeric <- function(d) modifyList(d, lapply(d[, sapply(d, is.factor)],   
+                                                   asNumeric))
+sem <- 
+  function(x) {sd(x,na.rm = T) / sqrt(length(x))}
+
+myPalette <- c("#d95f02","#1b9e77","#7570b3") 
+RTPalette <- c("#d7191c","#2c7bb6","#fdae61")
+
+```
+
+### Wrangle Data
+```{r fig.width = 3, fig.height = 4, warning = F, message = F}
+### load data
+DDM_All = read.csv("../../data/1_behav/DataAll_pupil.csv", header = T)
+DDM_All$subj_idx = factor(DDM_All$subj_idx)
+DDM_All$condition = factor(DDM_All$condition) 
+DDM_All$condition = revalue(DDM_All$condition, c("-1"="Face", "0"="Neutral", "1"="Scene"))
+DDM_All$condition = relevel(DDM_All$condition, ref="Neutral")
+
+DDM_All$MotCon = factor(DDM_All$MotCon) 
+DDM_All$MotCon = revalue(DDM_All$MotCon, c("-1"="MotInCon", "0"="NoMot", "1"="MotCon"))
+
+DDM_All$log_rt = log(DDM_All$rt)
+
+DDM_All$stim_n = dplyr::recode(DDM_All$stim, 
+                        `-1.5`=33,
+                        `-0.5`=43,
+                        `0`=48,
+                        `0.5`=53,
+                        `1.5`=63)
+
+DDM_All$stim_abs = abs(DDM_All$stim)
+
+DDM_All = as.data.frame(DDM_All)
+```
+
+### Evoked pupil response was associated with motivation consistent responses
+```{r}
+# M4
+DDM_Mot = subset(DDM_All,MotCon != "NoMot")
+DDM_Mot$MotCon = droplevels(DDM_Mot$MotCon)
+
+res_pupilMotCon_RT = 
+  glmer(MotCon ~ stim_abs + baseline + pupil + rt + (stim_abs + baseline + pupil + rt |subj_idx),
+       DDM_Mot, family = binomial(link="logit"), control = glmerControl(calc.derivs = FALSE))
+
+summary(res_pupilMotCon_RT)
+# confint(res_pupilMotCon_RT, method = "Wald")
+```
+
+### Evoked pupil response was associated with lower accuracy
+```{r}
+# M5
+DDM_All$acc = ifelse(DDM_All$stim == 0,
+                     NA,
+                     ifelse((DDM_All$stim > 0 & DDM_All$response == 1),
+                            1,
+                            ifelse((DDM_All$stim < 0 & DDM_All$response == 0),
+                                   1,
+                                   0)))
+
+res_acc = glmer(acc ~ stim_abs + baseline + pupil + (stim_abs + baseline + pupil|subj_idx), DDM_All,
+              family = binomial(link="logit"), control = glmerControl(calc.derivs = FALSE))
+
+summary(res_acc)
+# confint(res_acc, method = "Wald")
+```
+
+### Is pupil response associated with RT?
+```{r}
+# M6
+res_rt = lmer(rt ~ stim_abs + baseline + pupil + (stim_abs + baseline + pupil |subj_idx), DDM_All,
+              control = lmerControl(calc.derivs = FALSE))
+
+summary(res_rt)
+confint(res_rt, method = "Wald")
+```
+### zero order effects of baseline 
+```{r}
+DDM_All$MotCon= relevel(DDM_All$MotCon, ref="MotCon")
+
+res_baseline= lmer(baseline ~ MotCon + (MotCon |subj_idx), DDM_All, 
+                 control = lmerControl(calc.derivs = FALSE))
+
+summary(res_baseline)
+#confint(res_baseline, method = 'Wald')
+```
+
+### zero order effects of baseline (neutral trials)
+```{r}
+DDM_All$MotCon= relevel(DDM_All$MotCon, ref="NoMot")
+
+res_baseline= lmer(baseline ~ MotCon + (MotCon |subj_idx), DDM_All, 
+                 control = lmerControl(calc.derivs = FALSE))
+
+summary(res_baseline)
+
+#confint(res_baseline, method = 'Wald')
+```
+
+### Plot baseline
+```{r fig.width = 4, fig.height = 6}
+DDM_baseline_summary = DDM_All %>%
+  group_by(subj_idx, MotCon) %>%
+  dplyr::summarise(baseline = mean(baseline)) %>%
+  group_by(MotCon) %>%
+  dplyr::summarise(mean_baseline = mean(baseline), se = sem(baseline))
+  
+DDM_baseline_summary$MotCon = factor(DDM_baseline_summary$MotCon, 
+                                     levels = c("MotCon", "MotInCon", "NoMot")) 
+
+ggplot(DDM_baseline_summary, aes(x=MotCon, y=mean_baseline, fill=MotCon)) + 
+   geom_bar(stat="identity", width = 0.5,position = "dodge") +
+   geom_errorbar(aes(ymin=mean_baseline-se, ymax=mean_baseline+se), width=0.1, 
+                 position = position_dodge(0.5)) +
+   theme(legend.position="none",
+      panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"),
+        axis.text.x  = element_text(size=14,color="black"),
+        axis.text.y  = element_text(size=14,color="black"),
+        axis.title.x = element_text(size=16),
+        axis.title.y = element_text(size=16)) +
+  xlab("Response") + ylab("Baseline pupil diameter (Z)") +
+  coord_cartesian(ylim = c(-0.12,0.05)) +
+  scale_fill_manual(values=RTPalette)                     
+
+```

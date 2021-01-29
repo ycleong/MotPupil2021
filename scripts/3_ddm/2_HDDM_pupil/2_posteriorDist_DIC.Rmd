@@ -1,0 +1,257 @@
+---
+title: "Plot posterior distributions and DIC"
+output: html_document
+---
+
+```{r set-up, warning=FALSE, message=FALSE, results="hide"}
+# Clear workspace
+rm(list = ls())
+
+# Load packages
+library(tidyr)
+library(plyr)
+library(dplyr)
+library(ggplot2)
+library(lmerTest)
+library(Hmisc)
+library(car)
+library(Rarity)
+library(cowplot)
+
+asNumeric <- function(x) as.numeric(as.character(x))
+factorsNumeric <- function(d) modifyList(d, lapply(d[, sapply(d, is.factor)],   
+                                                   asNumeric))
+sem <- 
+  function(x) {sd(x,na.rm = T) / sqrt(length(x))}
+
+```
+
+```{r}
+# Read in posterior distribution of each parameter
+d0 = read.csv("../../../data/3_ddm/modeloutputs/trace_processed/zbp_vbp.csv",header = F) 
+
+colnames(d0) = c("a", "t", "z_pupil_condition","z_baseline_condition","z_Intercept",
+                 "v_pupil_condition","v_baseline_condition","v_stim","v_Intercept")
+```
+
+
+### v_pupil_condition
+
+```{r}
+# v_pupil_condition
+v_pupil_95 = quantile(d0$v_pupil_condition,0.05)
+v_pupil = d0$v_pupil_condition
+v_pupil = as.data.frame(v_pupil)
+
+# Credible intervals
+quantile(d0$v_pupil_condition,c(0.025,0.975))
+mean(d0$v_pupil_condition)
+mean(d0$v_pupil_condition > 0)
+
+plot.v_pupil = 
+  ggplot(v_pupil,aes(v_pupil, y = ..scaled..)) +
+  geom_density(alpha = 0.2, adjust = 5, size = 0) +
+  geom_line(stat = "density", adjust = 5, size = 1) +
+  geom_vline(xintercept = 0, size = 0.5, linetype="dashed") + 
+  theme(legend.position = "none",
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"),
+        axis.text.x  = element_text(size=10,color="black"),
+        axis.text.y  = element_text(size=10,color="black"),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(size=10),
+        strip.background = element_blank(),
+        strip.text.x = element_text(face = "bold", size = 10),
+        plot.title = element_text(hjust = 0.5,face = "bold", size = (12))) +
+  ylab("Density") +
+  coord_cartesian(ylim=c(0, 1.1), xlim = c(-0.15, 0.15)) +
+  scale_y_continuous(breaks=seq(0,1,0.25)) +
+  scale_x_continuous(breaks=seq(-0.1,0.1,0.1)) +
+  ggtitle("p(v_pupil)")
+
+# Shade area
+plot_data <- as.data.frame(ggplot_build(plot.v_pupil)$data[2])
+plot.v_pupil = plot.v_pupil + 
+  geom_area(data = subset(plot_data, x > 0.0001), aes(x=x, y=y-0.0002), fill="grey", alpha = 0.8) + 
+  geom_line(stat = "density", adjust = 5, size = 1)
+```
+
+### v_baseline_condition
+```{r}
+v_baseline_95 = quantile(d0$v_baseline_condition,0.05)
+v_baseline = d0$v_baseline_condition
+v_baseline = as.data.frame(v_baseline)
+
+# Credible intervals
+quantile(d0$v_baseline,c(0.025,0.975))
+mean(d0$v_baseline_condition)
+mean(d0$v_baseline_condition > 0)
+
+plot.v_baseline = 
+  ggplot(v_baseline,aes(v_baseline, y = ..scaled..)) +
+  geom_density(alpha = 0.2, adjust = 5, size = 0) +
+  geom_line(stat = "density", adjust = 5, size = 1) +
+  geom_vline(xintercept = 0, size = 0.5, linetype="dashed") + 
+  theme(legend.position = "none",
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"),
+        axis.text.x  = element_text(size=10,color="black"),
+        axis.text.y  = element_text(size=10,color="black"),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(size=10),
+        strip.background = element_blank(),
+        strip.text.x = element_text(face = "bold", size = 10),
+        plot.title = element_text(hjust = 0.5,face = "bold", size = (12))) +
+  ylab("Density") +
+  coord_cartesian(ylim=c(0, 1.1), xlim = c(-0.101, 0.101)) +
+  scale_y_continuous(breaks=seq(0,1,0.25)) +
+  scale_x_continuous(breaks=seq(-0.1,0.1,0.1)) +
+  ggtitle("p(v_baseline)")
+
+# Shade area
+plot_data <- as.data.frame(ggplot_build(plot.v_baseline)$data[2])
+plot.v_baseline = plot.v_baseline + 
+  geom_area(data = subset(plot_data, x > 0.0001), aes(x=x, y=y-0.0002), fill="grey", alpha = 0.8) + 
+  geom_line(stat = "density", adjust = 5, size = 1)
+```
+
+
+### z_pupil_condition
+
+```{r}
+# z_pupil_condition
+z_pupil_95 = quantile(d0$z_pupil_condition,0.05)
+z_pupil = d0$z_pupil_condition
+z_pupil = as.data.frame(z_pupil)
+
+# Credible intervals
+quantile(d0$z_pupil_condition,c(0.025,0.975))
+mean(d0$z_pupil_condition)
+mean(d0$z_pupil_condition > 0)
+
+plot.z_pupil = 
+  ggplot(z_pupil,aes(z_pupil, y = ..scaled..)) +
+  geom_density(alpha = 0.2, adjust = 5, size = 0) +
+  geom_line(stat = "density", adjust = 5, size = 1) +
+  geom_vline(xintercept = 0, size = 0.5, linetype="dashed") + 
+  theme(legend.position = "none",
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"),
+        axis.text.x  = element_text(size=10,color="black"),
+        axis.text.y  = element_text(size=10,color="black"),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(size=10),
+        strip.background = element_blank(),
+        strip.text.x = element_text(face = "bold", size = 10),
+        plot.title = element_text(hjust = 0.5,face = "bold", size = (12))) +
+  ylab("Density") +
+  coord_cartesian(ylim=c(0, 1.1), xlim = c(-0.15, 0.15)) +
+  scale_y_continuous(breaks=seq(0,1,0.25)) +
+  scale_x_continuous(breaks=seq(-0.1,0.1,0.1)) +
+  ggtitle('p(z_pupil)')
+
+# Shade area
+plot_data <- as.data.frame(ggplot_build(plot.z_pupil)$data[2])
+plot.z_pupil = plot.z_pupil + 
+  geom_area(data = subset(plot_data, x > 0.0001), aes(x=x, y=y-0.0002), fill="grey", alpha = 0.8) + 
+  geom_line(stat = "density", adjust = 5, size = 1)
+```
+
+### z_baseline_condition
+```{r}
+z_baseline_95 = quantile(d0$z_baseline_condition,0.05)
+z_baseline = d0$z_baseline_condition
+z_baseline = as.data.frame(z_baseline)
+
+# Credible intervals
+quantile(d0$z_baseline,c(0.025,0.975))
+mean(d0$z_baseline_condition)
+mean(d0$z_baseline_condition > 0)
+
+plot.z_baseline = 
+  ggplot(z_baseline,aes(z_baseline, y = ..scaled..)) +
+  geom_density(alpha = 0.2, adjust = 5, size = 0) +
+  geom_line(stat = "density", adjust = 5, size = 1) +
+  geom_vline(xintercept = 0, size = 0.5, linetype="dashed") + 
+  theme(legend.position = "none",
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"),
+        axis.text.x  = element_text(size=10,color="black"),
+        axis.text.y  = element_text(size=10,color="black"),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(size=10),
+        strip.background = element_blank(),
+        strip.text.x = element_text(face = "bold", size = 10),
+        plot.title = element_text(hjust = 0.5,face = "bold", size = (12))) +
+  ylab("Density") +
+  coord_cartesian(ylim=c(0, 1.1), xlim = c(-0.101, 0.101)) +
+  scale_y_continuous(breaks=seq(0,1,0.25)) +
+  scale_x_continuous(breaks=seq(-0.1,0.1,0.1)) +
+  ggtitle('p(z_baseline)')
+
+# Shade area
+plot_data <- as.data.frame(ggplot_build(plot.z_baseline)$data[2])
+plot.z_baseline = plot.z_baseline + 
+  geom_area(data = subset(plot_data, x > 0.0001), aes(x=x, y=y-0.0002), fill="grey", alpha = 0.8) + 
+  geom_line(stat = "density", adjust = 5, size = 1)
+```
+
+```{r}
+model.DIC = read.csv('../../../data/3_ddm/DIC_pupil.csv',header = F)
+colnames(model.DIC) = c('Model','DIC')
+
+model.DIC$Model = factor(model.DIC$Model,levels = rev(model.DIC$Model))
+
+DIC.fig = ggplot(model.DIC, aes(x = Model, y = DIC)) + 
+  geom_bar(stat = "identity",width = 0.3) +
+    theme(panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"),
+        axis.text.x  = element_text(size=10,color="black"),
+        axis.text.y  = element_text(size=10,color="black"),
+        axis.title.x = element_text(size=10),
+        axis.title.y = element_text(size=12),
+        strip.text.x = element_text(face = "bold", size = 10)) +
+   scale_y_continuous(breaks=seq(25980,26000,10)) +
+   coord_flip(ylim = c(25975, 26002))
+
+```
+
+```{r fig.width = 8, fig.height = 4}
+left_plot = plot_grid(plot.v_baseline, plot.v_pupil, plot.z_baseline, plot.z_pupil, nrow = 2)
+
+entire_plot = plot_grid(left_plot, DIC.fig, ncol = 2, rel_widths = c(2,1), labels = c("A","B"))
+
+entire_plot
+```
+
+
+
+```{r}
+cat("P(v_evoked*mot > 0) =", round(mean(d0$v_pupil_condition > 0),3),
+    ", mean =", round(mean(d0$v_pupil_condition),3),
+    "95% CI =", round(quantile(d0$v_pupil_condition,c(0.025,0.975)),3))
+
+cat("P(v_baseline*mot > 0) =", round(mean(d0$v_baseline_condition > 0),3),
+    ", mean =", round(mean(d0$v_baseline_condition),3),
+    "95% CI =", round(quantile(d0$v_baseline_condition,c(0.025,0.975)),3))
+
+cat("P(z_evoked*mot > 0) =", round(mean(d0$z_pupil_condition > 0),3),
+    ", mean =", round(mean(d0$z_pupil_condition),3),
+    "95% CI =", round(quantile(d0$z_pupil_condition,c(0.025,0.975)),3))
+
+cat("P(z_baseline*mot > 0) =", round(mean(d0$z_baseline_condition > 0),3),
+    ", mean =", round(mean(d0$z_baseline_condition),3),
+    "95% CI =", round(quantile(d0$z_baseline_condition,c(0.025,0.975)),3))
+```
+
+
+

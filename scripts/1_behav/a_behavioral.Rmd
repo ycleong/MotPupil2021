@@ -1,0 +1,174 @@
+---
+title: "Behavioral Analyses"
+output: html_document
+---
+
+```{r load_libraries, echo = F, warning=FALSE, message=FALSE}
+rm(list=ls())
+
+# Load packages
+library(tidyr)
+library(plyr)
+library(dplyr)
+library(ggplot2)
+library(lmerTest)
+library(cowplot)
+
+asNumeric <- function(x) as.numeric(as.character(x))
+factorsNumeric <- function(d) modifyList(d, lapply(d[, sapply(d, is.factor)],   
+                                                   asNumeric))
+sem <- 
+  function(x) {sd(x,na.rm = T) / sqrt(length(x))}
+
+myPalette <- c("#d95f02","#1b9e77","#7570b3") 
+RTPalette <- c("#d7191c","#2c7bb6","#fdae61")
+
+redo_calc = 0
+```
+
+### Load Data and Run Models
+```{r fig.width = 3, fig.height = 4, warning = F, message = F}
+### load data
+DDM_All = read.csv("../../data/1_behav/DataAll.csv", header = T)
+DDM_All$subj_idx = factor(DDM_All$subj_idx)
+DDM_All$condition = factor(DDM_All$condition) 
+DDM_All$condition = revalue(DDM_All$condition, c("-1"="Face", "0"="Neutral", "1"="Scene"))
+DDM_All$condition = relevel(DDM_All$condition, ref="Neutral")
+
+DDM_All$MotCon = factor(DDM_All$MotCon) 
+DDM_All$MotCon = revalue(DDM_All$MotCon, c("-1"="MotInCon", "0"="NoMot", "1"="MotCon"))
+
+DDM_All$stim_n = dplyr::recode(DDM_All$stim, 
+                        `-1.5`=33,
+                        `-0.5`=43,
+                        `0`=48,
+                        `0.5`=53,
+                        `1.5`=63)
+
+DDM_All$stim_abs = abs(DDM_All$stim)
+
+DDM_All = as.data.frame(DDM_All)
+
+# Run mixed effects models
+if (redo_calc){
+  
+  res_stim_n = glmer(response ~ stim_n + condition + (stim_n + condition |subj_idx), DDM_All, 
+              family = binomial(link="logit"), control = glmerControl(calc.derivs = FALSE))
+  
+  DDM_All$MotCon = relevel(DDM_All$MotCon, ref="MotCon")
+  resRT_MotCon =lmer(rt ~ stim_abs + response + MotCon + 
+                       (stim_abs + response + MotCon|subj_idx), DDM_All, 
+                     control = lmerControl(calc.derivs = FALSE))
+  
+  DDM_All$MotCon = relevel(DDM_All$MotCon, ref="NoMot")
+  resRT_NoMot =lmer(rt ~ stim_abs + response + MotCon + 
+                       (stim_abs + response + MotCon|subj_idx), DDM_All,
+                     control = lmerControl(calc.derivs = FALSE))
+  
+  save(res_stim_n, resRT_MotCon, resRT_NoMot, file="../../data/1_behav/PsychometricCurves.Rda")
+
+} else {
+  load("../../data/1_behav/PsychometricCurves.Rda")
+}
+```
+
+### Motivation biased perceptual judgments
+```{r}
+# M1
+summary(res_stim_n)
+#confint(res, method = "Wald")
+```
+
+### Response times were faster for motivation consistent responses
+```{r}
+# M2
+summary(resRT_MotCon)  
+# confint(resRT_MotCon, method = "Wald")
+
+# M3
+summary(resRT_NoMot)
+#confint(resRT_NoMot, method = "Wald")
+```
+
+### Plot Data
+
+#### Psychometric curve
+```{r}
+# Create predicted dataset
+res_coef = coef(summary(res_stim_n))
+intercept = res_coef[1,1]
+stim_n_est = res_coef[2,1]
+Face_est = res_coef[3,1]
+Scene_est = res_coef[4,1]
+
+pred.data = data.frame(stim_n = rep(seq(0, 100, len = 101),3),
+                       condition = c(rep("Face",101),rep("Neutral",101),rep("Scene",101)))
+
+pred.data$response= ifelse(pred.data$condition == "Neutral", 1/(1 + exp(-(intercept + stim_n_est * pred.data$stim_n))),
+                    ifelse(pred.data$condition == "Face", 1/(1 + exp(-(intercept + stim_n_est * pred.data$stim_n + Face_est))),
+                        1/(1 + exp(-(intercept + stim_n_est * pred.data$stim_n + Scene_est)))))
+
+thisData = DDM_All
+```
+
+
+```{r fig.width = 6.2, fig.height = 3.8, warning = F}
+# Plot group average with fit
+sub_avg = group_by(thisData,subj_idx,stim_n,condition) %>% 
+    summarise(Avg = mean(response, na.rm=T))
+
+plot1 = ggplot() +
+  geom_line(data = pred.data, aes(x=stim_n,y=response,color=condition),size=0.5, alpha = 0.7) +
+  stat_summary(data = sub_avg, aes(x=stim_n,y=Avg,color = condition),
+               fun.data = mean_cl_normal, geom = "errorbar",width=0.5,
+               fun.args = list(mult = 1), alpha = 0.7) + 
+  stat_summary(data = sub_avg, aes(x=stim_n, y=Avg, color = condition),
+               fun.y=mean,geom="point",size=2.5, alpha = 0.9) +
+  theme(legend.position="none",
+      panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"),
+        axis.text.x  = element_text(size=14,color="black"),
+        axis.text.y  = element_text(size=14,color="black"),
+        axis.title.x = element_text(size=16),
+        axis.title.y = element_text(size=16),
+        strip.background = element_blank()) +
+  xlab("% Scene") + ylab("P(Respond Scene)") +
+  coord_cartesian(xlim = c(30,70)) +
+  scale_colour_manual(values=myPalette) 
+```
+
+```{r}
+DDM_subj_rt = group_by(DDM_All, subj_idx, stim_n, MotCon) %>%
+  dplyr::summarise(rt = mean(rt), nTrials = n())
+
+DDM_summary_rt = DDM_subj_rt %>%
+  group_by(MotCon, stim_n) %>%
+    dplyr::summarise(se = sd(rt)/sqrt(37), rt = mean(rt), mean_nTrials = mean(nTrials)) 
+
+DDM_summary_rt$stim_n_f = factor(DDM_summary_rt$stim_n)
+
+DDM_summary_rt$MotCon = factor(DDM_summary_rt$MotCon, levels = c("MotCon", "MotInCon", "NoMot")) 
+
+plot2 = ggplot(subset(DDM_summary_rt, MotCon != "1"), aes(x=stim_n_f, y=rt, fill=MotCon)) + 
+   geom_bar(stat="identity", width = 0.5,position = "dodge") +
+   geom_errorbar(aes(ymin=rt-se, ymax=rt+se), width=0.1, position = position_dodge(0.5)) +
+   theme(legend.key = element_rect(fill = NA, colour = NA),
+         legend.text=element_text(size=14),
+      panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"),
+        axis.text.x  = element_text(size=14,color="black"),
+        axis.text.y  = element_text(size=14,color="black"),
+        axis.title.x = element_text(size=16),
+        axis.title.y = element_text(size=16)) +
+  xlab("% Scene") + ylab("RT(s)") +
+  coord_cartesian(ylim = c(0.8,1.6)) +
+  scale_fill_manual(values=RTPalette)
+```
+
+```{r fig.width= 12, fig.height = 4}
+plot_grid(plot1, plot2, labels = c("B","C"),label_size = 16)
+```

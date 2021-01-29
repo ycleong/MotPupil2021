@@ -1,0 +1,185 @@
+---
+title: "Supplemental Behavioral Analyses"
+output: html_document
+---
+
+```{r load_libraries, echo = F, warning=FALSE, message=FALSE}
+rm(list=ls())
+
+# Load packages
+library(tidyr)
+library(plyr)
+library(dplyr)
+library(ggplot2)
+library(lmerTest)
+library(cowplot)
+
+theme_set(theme_cowplot())
+
+asNumeric <- function(x) as.numeric(as.character(x))
+factorsNumeric <- function(d) modifyList(d, lapply(d[, sapply(d, is.factor)],   
+                                                   asNumeric))
+sem <- 
+  function(x) {sd(x,na.rm = T) / sqrt(length(x))}
+
+# myPalette <- c("#d95f02","#1b9e77","#7570b3") 
+# RTPalette <- c("#d7191c","#2c7bb6","#fdae61")
+
+myPalette2 <- c("#d95f02","#7570b3") 
+
+redo_calc = 1;
+```
+
+### Load data
+```{r fig.width = 3, fig.height = 4, warning = F, message = F}
+### load data
+DDM_All = read.csv("../../data/1_behav/DataAll.csv", header = T)
+DDM_All$subj_idx = factor(DDM_All$subj_idx)
+DDM_All$condition = factor(DDM_All$condition) 
+DDM_All$condition = revalue(DDM_All$condition, c("-1"="Face", "0"="Neutral", "1"="Scene"))
+DDM_All$condition = relevel(DDM_All$condition, ref="Neutral")
+
+DDM_All$MotCon = factor(DDM_All$MotCon) 
+DDM_All$MotCon = revalue(DDM_All$MotCon, c("-1"="MotInCon", "0"="NoMot", "1"="MotCon"))
+
+DDM_All$log_rt = log(DDM_All$rt)
+
+DDM_All$stim_n = dplyr::recode(DDM_All$stim, 
+                        `-1.5`=33,
+                        `-0.5`=43,
+                        `0`=48,
+                        `0.5`=53,
+                        `1.5`=63)
+
+DDM_All$stim_abs = abs(DDM_All$stim)
+
+DDM_All = as.data.frame(DDM_All)
+```
+
+### Run a GLM for each participant 
+```{r message = F}
+SubList = levels(DDM_All$subj_idx)
+
+all.pred.data = NULL
+all.res = NULL
+
+if (redo_calc){
+
+  for (i in c(1:38))
+  {
+    thisSub = subset(DDM_All, DDM_All$subj_idx == SubList[i])
+    thisSub$condition = relevel(thisSub$condition, ref = 'Face')
+    
+    thisRes = glm(response ~ stim_n + condition, data = thisSub,
+                family = binomial(link="logit"))
+    
+    thisCI = confint(thisRes, method = "profile", quiet = T)[4,]
+    
+    thisSummary = summary(thisRes)
+  
+    this.coef = NULL
+    this.coef$subj_idx = SubList[i]
+    this.coef$Estimate = thisSummary$coefficients[4,1]
+    this.coef$SE = thisSummary$coefficients[4,2]
+    this.coef$z = thisSummary$coefficients[4,3]
+    this.coef$p = thisSummary$coefficients[4,4]
+    this.coef$conf.low = thisCI[1]
+    this.coef$conf.hi = thisCI[2]
+    
+    this.coef = as.data.frame(this.coef)
+  
+    all.res = rbind(all.res,this.coef)
+    
+    pred.data = data.frame(subj_idx = SubList[i],
+      stim_n = rep(seq(0, 100, len = 101),3),
+      condition = c(rep("Face",101),rep("Scene",101),rep("Neutral",101)))
+    
+    pred.data$response = predict.glm(thisRes,pred.data,type = "response")
+    
+    all.pred.data = rbind(all.pred.data,pred.data)
+  
+  }
+  save(all.pred.data, file="../../data/1_behav/indvGLM.Rda")
+}else {
+  load("../../data/1_behav/indvGLM.Rda")
+}
+```
+
+### Plot individual psychometric functions
+```{r fig.width  = 10, fig.height = 12}
+sub_avg = group_by(DDM_All,subj_idx,stim_n,condition) %>% 
+    dplyr::summarise(Avg = mean(response, na.rm=T), SE = sem(response))
+
+sub_avg = subset(sub_avg, condition != 'Neutral')
+all.pred.data = subset(all.pred.data, condition != 'Neutral')
+
+# sort subjects by effect
+all.res = all.res[order(all.res$z, decreasing = TRUE),]
+
+all.pred.data$subj_idx = factor(all.pred.data$subj_idx, levels = levels(sub_avg$subj_idx))
+
+# Plot single GLM
+ggplot() +
+  geom_point(data = sub_avg, aes(x=stim_n ,y=Avg,color = condition), size = 1.5, alpha = 0.75) +
+  geom_errorbar(data = sub_avg, aes(x = stim_n, ymin=Avg-SE, ymax=Avg+SE, color = condition), width=0.1) +
+  geom_line(data = all.pred.data, aes(x=stim_n,y=response,color= condition),size=0.8, alpha = 0.75) +
+  facet_wrap(~ subj_idx, ncol = 4) +
+  theme(legend.position="none") +
+  coord_cartesian(xlim = c(30,70)) +
+  ylab('P(Scene)') +
+  xlab('% Scene') +
+  scale_colour_manual(values=myPalette2)
+```
+
+### Plot individual regression coefficients
+```{r fig.height = 3.1, fig.width = 6.2}
+all.res$subj_idx = factor(all.res$subj_idx, levels = all.res$subj_idx)
+
+ggplot(all.res, aes(x = subj_idx, y = Estimate)) +
+  geom_point(size = 1) +
+  geom_hline(yintercept = 0, linetype = 2, size = 1) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.hi), width = 0.5) +
+  theme_classic() +
+  theme(legend.position="none",
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank(),
+    panel.background = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.x = element_text(angle = 75, size = 8, hjust = 1),
+    axis.text.y = element_text(size = 10)) +
+  ylab('Coefficient')
+```
+
+### Analyze second half of experiment only
+```{r}
+DDM_All$condition = relevel(DDM_All$condition, ref = 'Scene')
+
+res = glmer(response ~ stim + condition + (stim + condition |subj_idx),
+            subset(DDM_All, block > 6),
+            family = binomial(link="logit"), control = glmerControl(calc.derivs = FALSE))
+
+summary(res)
+```
+
+### Exclude three most extreme participants
+```{r}
+DDM_All$condition = relevel(DDM_All$condition, ref = 'Scene')
+
+res = glmer(response ~ stim + condition + (stim + condition |subj_idx),
+            subset(DDM_All, !(subj_idx %in% c('4','9','28'))),
+                   family = binomial(link="logit"), control = glmerControl(calc.derivs = FALSE))
+
+summary(res)
+```
+
+### Exclude participants who said they were biased
+```{r}
+DDM_All$condition = relevel(DDM_All$condition, ref = 'Scene')
+
+res = glmer(response ~ stim + condition + (stim + condition |subj_idx),
+            subset(DDM_All, (subj_idx %in% c('10','27','28','29','35','1','2','5','12','16','17','19','23','24','25','26','32','37'))),
+                   family = binomial(link="logit"), control = glmerControl(calc.derivs = FALSE))
+
+summary(res)
+```

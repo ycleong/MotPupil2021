@@ -1,0 +1,136 @@
+---
+title: "Plots posterior distribution and DIC"
+output: html_document
+---
+
+```{r set-up, warning=FALSE, message=FALSE, results="hide"}
+# Clear workspace
+rm(list = ls())
+
+# Load helper functions
+source('../../utils/helper_functions.R')
+
+# Import libraries
+packages = c("tidyr","dplyr","ggplot2","lme4","lmerTest","Hmisc","car","lmtest","Rarity","cowplot")
+ipak(packages)
+
+```
+
+### Plot posteriors
+
+```{r}
+# Read in posterior distribution of each parameter
+d0 = read.csv("../../../data/3_ddm/modeloutputs/trace_processed/zv_model.csv",header = F) 
+colnames(d0) = c("v_bias", "z_bias")
+
+# z_bias
+z_95 = quantile(d0$z_bias,0.05)
+z_diff = d0$z_bias
+z_diff = as.data.frame(z_diff)
+
+# Credible intervals
+mean(d0$z_bias)
+quantile(d0$z_bias,c(0.025,0.975))
+
+plot.z_diff = 
+  ggplot(z_diff,aes(z_diff, y = ..scaled..)) +
+  geom_density(alpha = 0.2, adjust = 5, size = 0) +
+  geom_line(stat = "density", adjust = 5, size = 1) +
+  geom_vline(xintercept = 0, size = 0.5, linetype="dashed") + 
+  scale_colour_manual(values=myPalette) +
+  theme(legend.position = "none",
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"),
+        axis.text.x  = element_text(size=9,color="black"),
+        axis.text.y  = element_text(size=9,color="black"),
+        axis.title.x = element_text(size=9),
+        axis.title.y = element_text(size=9),
+        strip.background = element_blank(),
+        strip.text.x = element_text(face = "bold", size = 10),
+        plot.title = element_text(hjust = 0.5,face = "bold", size = (10))) +
+  xlab("z_bias") + ylab("Density") +
+  coord_cartesian(ylim=c(0, 1.1), xlim = c(-0.05, 0.21)) +
+  scale_y_continuous(breaks=seq(0,1,0.25)) +
+  scale_x_continuous(breaks=c(0, 0.2, 0.1))
+
+# Shade area
+plot_data <- as.data.frame(ggplot_build(plot.z_diff)$data[2])
+plot.z_diff = plot.z_diff+ 
+  geom_area(data = subset(plot_data, x > 0.001), aes(x=x, y=y-0.02), fill="grey", alpha = 0.8) + 
+  geom_line(stat = "density", adjust = 5, size = 1)
+
+# v_bias
+v_95 = quantile(d0$v_bias,0.05)
+v_diff = d0$v_bias
+v_diff = as.data.frame(v_diff)
+
+# Credible intervals
+mean(d0$v_bias)
+quantile(d0$v_bias,c(0.025,0.975))
+
+plot.v_diff = 
+  ggplot(v_diff,aes(v_diff, y = ..scaled..)) +
+  geom_density(alpha = 0.2, adjust = 5, size = 0) +
+  geom_line(stat = "density", adjust = 5, size = 1) +
+  geom_vline(xintercept = 0, size = 0.5, linetype="dashed") + 
+  scale_colour_manual(values=myPalette) +
+  #ggtitle("v bias") +
+  theme(legend.position = "none",
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"),
+        axis.text.x  = element_text(size=9,color="black"),
+        axis.text.y  = element_text(size=9,color="black"),
+        axis.title.x = element_text(size=9),
+        axis.title.y = element_text(size=9),
+        strip.background = element_blank(),
+        strip.text.x = element_text(face = "bold", size = 10),
+        plot.title = element_text(hjust = 0.5,face = "bold", size = (10))) +
+  xlab("v_bias") + ylab("Density") +
+  coord_cartesian(ylim=c(0, 1.1), xlim = c(-0.05, 0.21)) +
+  scale_y_continuous(breaks=seq(0,1,0.25)) +
+  scale_x_continuous(breaks=c(0, 0.2, 0.1))
+
+# Shade area
+plot_data <- as.data.frame(ggplot_build(plot.v_diff)$data[2])
+plot.v_diff = plot.v_diff+ 
+  geom_area(data = subset(plot_data, x > 0.001), aes(x=x, y=y-0.002), fill="grey", alpha = 0.8) + 
+  geom_line(stat = "density", adjust = 5, size = 1)
+
+z_bias = mean(z_diff$z_diff > 0)
+cat("P_z(S > F) = ", z_bias)
+
+v_bias = mean(v_diff$v_diff > 0)
+cat("P_v(S > F) = ", v_bias)
+
+```
+
+```{r fig.width = 6.4, fig.height = 3}
+# Plot DIC
+model.DIC = NULL
+model.DIC$Model = c('z & v','z','v',"null")
+model.DIC$DIC = c(26862,26869,26892,26995) # See HDDM Analysis 
+model.DIC = as.data.frame(model.DIC)
+model.DIC$Model = factor(model.DIC$Model, levels = c('z & v','z','v','null'))
+
+DIC.fig = ggplot(model.DIC, aes(x = Model, y = DIC)) + 
+  geom_bar(stat = "identity",width = 0.3) +
+  coord_cartesian(ylim=c(26850, 27000)) +
+    theme(panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"),
+        axis.text.x  = element_text(size=9,color="black"),
+        axis.text.y  = element_text(size=9,color="black"),
+        axis.title.x = element_text(size=10),
+        axis.title.y = element_text(size=10),
+        strip.text.x = element_text(face = "bold", size = 10))
+```
+
+
+```{r fig.width = 6.5, fig.height = 1.8}
+plot_grid(plot.z_diff, plot.v_diff, DIC.fig, nrow = 1)
+```
+
