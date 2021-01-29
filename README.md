@@ -1,7 +1,7 @@
 ---
 output: html_document
 ---
-### Conservative and liberal attitudes drive polarized neural responses to political content
+### Pupil-linked arousal biases evidence accumulation towards desirable percepts during perceptual decision-making
 This repository hosts analyses code for our manuscript <i> Pupil-linked arousal biases evidence accumulation towards desirable percepts during perceptual decision-making </i>. If you have any questions, or find any bugs (or broken links), please email me at ycleong@berkeley.edu. A preprint is available here: https://www.biorxiv.org/content/10.1101/2020.05.29.124115v2
 
 <b> data </b>  
