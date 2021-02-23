@@ -62,11 +62,14 @@ res_pupilMotCon_RT =
        DDM_Mot, family = binomial(link="logit"), control = glmerControl(calc.derivs = FALSE))
 
 summary(res_pupilMotCon_RT)
+
 # confint(res_pupilMotCon_RT, method = "Wald")
 ```
 
 ### Evoked pupil response was associated with lower accuracy
 ```{r}
+DDM_All$MotCon= relevel(DDM_All$MotCon, ref="NoMot")
+
 # M5
 DDM_All$acc = ifelse(DDM_All$stim == 0,
                      NA,
@@ -76,21 +79,22 @@ DDM_All$acc = ifelse(DDM_All$stim == 0,
                                    1,
                                    0)))
 
-res_acc = glmer(acc ~ stim_abs + baseline + pupil + (stim_abs + baseline + pupil|subj_idx), DDM_All,
+res_acc = glmer(acc ~ stim_abs + baseline + pupil + MotCon + (baseline + pupil + MotCon|subj_idx), DDM_All,
               family = binomial(link="logit"), control = glmerControl(calc.derivs = FALSE))
 
 summary(res_acc)
-# confint(res_acc, method = "Wald")
+#confint(res_acc, method = "Wald")
 ```
 
 ### Is pupil response associated with RT?
 ```{r}
 # M6
-res_rt = lmer(rt ~ stim_abs + baseline + pupil + (stim_abs + baseline + pupil |subj_idx), DDM_All,
+res_rt = lmer(rt ~ stim_abs + baseline + pupil + MotCon + (baseline + pupil + MotCon |subj_idx), DDM_All,
               control = lmerControl(calc.derivs = FALSE))
 
 summary(res_rt)
-confint(res_rt, method = "Wald")
+
+#confint(res_rt, method = "Wald")
 ```
 ### zero order effects of baseline 
 ```{r}
@@ -100,6 +104,7 @@ res_baseline= lmer(baseline ~ MotCon + (MotCon |subj_idx), DDM_All,
                  control = lmerControl(calc.derivs = FALSE))
 
 summary(res_baseline)
+
 #confint(res_baseline, method = 'Wald')
 ```
 

@@ -446,7 +446,9 @@ summary(res_pupilMotCon_RT)</code></pre>
 </div>
 <div id="evoked-pupil-response-was-associated-with-lower-accuracy" class="section level3">
 <h3>Evoked pupil response was associated with lower accuracy</h3>
-<pre class="r"><code># M5
+<pre class="r"><code>DDM_All$MotCon= relevel(DDM_All$MotCon, ref=&quot;NoMot&quot;)
+
+# M5
 DDM_All$acc = ifelse(DDM_All$stim == 0,
                      NA,
                      ifelse((DDM_All$stim &gt; 0 &amp; DDM_All$response == 1),
@@ -455,109 +457,103 @@ DDM_All$acc = ifelse(DDM_All$stim == 0,
                                    1,
                                    0)))
 
-res_acc = glmer(acc ~ stim_abs + baseline + pupil + (stim_abs + baseline + pupil|subj_idx), DDM_All,
+res_acc = glmer(acc ~ stim_abs + baseline + pupil + MotCon + (baseline + pupil + MotCon|subj_idx), DDM_All,
               family = binomial(link=&quot;logit&quot;), control = glmerControl(calc.derivs = FALSE))
 
 summary(res_acc)</code></pre>
 <pre><code>## Generalized linear mixed model fit by maximum likelihood (Laplace
 ##   Approximation) [glmerMod]
 ##  Family: binomial  ( logit )
-## Formula: acc ~ stim_abs + baseline + pupil + (stim_abs + baseline + pupil |  
-##     subj_idx)
+## Formula: acc ~ stim_abs + baseline + pupil + MotCon + (baseline + pupil +  
+##     MotCon | subj_idx)
 ##    Data: DDM_All
 ## Control: glmerControl(calc.derivs = FALSE)
 ## 
 ##      AIC      BIC   logLik deviance df.resid 
-##   2517.4   2605.3  -1244.7   2489.4     3906 
+##   2547.1   2678.8  -1252.5   2505.1     3899 
 ## 
 ## Scaled residuals: 
-##      Min       1Q   Median       3Q      Max 
-## -12.7860   0.0867   0.1922   0.4686   0.8558 
+##     Min      1Q  Median      3Q     Max 
+## -8.2769  0.1383  0.1854  0.4473  1.0066 
 ## 
 ## Random effects:
-##  Groups   Name        Variance Std.Dev. Corr             
-##  subj_idx (Intercept) 0.1170   0.3420                    
-##           stim_abs    0.9423   0.9707   -0.82            
-##           baseline    0.0140   0.1183    0.80 -0.98      
-##           pupil       0.2350   0.4847   -0.71  0.17 -0.16
+##  Groups   Name           Variance Std.Dev. Corr                   
+##  subj_idx (Intercept)    0.22923  0.4788                          
+##           baseline       0.01884  0.1373   -0.63                  
+##           pupil          0.33437  0.5783    0.00  0.14            
+##           MotConMotInCon 0.15299  0.3911   -0.56 -0.22 -0.52      
+##           MotConMotCon   0.28292  0.5319   -0.58 -0.15 -0.59  0.99
 ## Number of obs: 3920, groups:  subj_idx, 38
 ## 
 ## Fixed effects:
-##             Estimate Std. Error z value Pr(&gt;|z|)    
-## (Intercept)  0.05482    0.13953   0.393   0.6944    
-## stim_abs     2.86792    0.25748  11.138   &lt;2e-16 ***
-## baseline    -0.04012    0.06029  -0.665   0.5058    
-## pupil       -0.38841    0.15784  -2.461   0.0139 *  
+##                Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept)     0.41325    0.15744   2.625  0.00867 ** 
+## stim_abs        2.24388    0.16365  13.711  &lt; 2e-16 ***
+## baseline       -0.04893    0.06202  -0.789  0.43015    
+## pupil          -0.41619    0.16945  -2.456  0.01404 *  
+## MotConMotInCon  0.09338    0.14667   0.637  0.52431    
+## MotConMotCon   -0.10147    0.15302  -0.663  0.50728    
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 ## 
 ## Correlation of Fixed Effects:
-##          (Intr) stm_bs baseln
-## stim_abs -0.855              
-## baseline  0.096 -0.204       
-## pupil    -0.207  0.058  0.309</code></pre>
-<pre class="r"><code># confint(res_acc, method = &quot;Wald&quot;)</code></pre>
+##             (Intr) stm_bs baseln pupil  MtCMIC
+## stim_abs    -0.643                            
+## baseline    -0.119  0.008                     
+## pupil       -0.056  0.021  0.337              
+## MotCnMtInCn -0.481  0.005 -0.062 -0.136       
+## MotConMotCn -0.509  0.003 -0.054 -0.205  0.616</code></pre>
+<pre class="r"><code>#confint(res_acc, method = &quot;Wald&quot;)</code></pre>
 </div>
 <div id="is-pupil-response-associated-with-rt" class="section level3">
 <h3>Is pupil response associated with RT?</h3>
 <pre class="r"><code># M6
-res_rt = lmer(rt ~ stim_abs + baseline + pupil + (stim_abs + baseline + pupil |subj_idx), DDM_All,
+res_rt = lmer(rt ~ stim_abs + baseline + pupil + MotCon + (baseline + pupil + MotCon |subj_idx), DDM_All,
               control = lmerControl(calc.derivs = FALSE))
 
 summary(res_rt)</code></pre>
 <pre><code>## Linear mixed model fit by REML. t-tests use Satterthwaite&#39;s method [
 ## lmerModLmerTest]
-## Formula: rt ~ stim_abs + baseline + pupil + (stim_abs + baseline + pupil |  
-##     subj_idx)
+## Formula: rt ~ stim_abs + baseline + pupil + MotCon + (baseline + pupil +  
+##     MotCon | subj_idx)
 ##    Data: DDM_All
 ## Control: lmerControl(calc.derivs = FALSE)
 ## 
-## REML criterion at convergence: 13877.1
+## REML criterion at convergence: 13981.8
 ## 
 ## Scaled residuals: 
 ##     Min      1Q  Median      3Q     Max 
-## -3.3909 -0.6962 -0.1581  0.5943  4.0004 
+## -3.2853 -0.7140 -0.1397  0.6100  3.9399 
 ## 
 ## Random effects:
-##  Groups   Name        Variance Std.Dev. Corr             
-##  subj_idx (Intercept) 0.069333 0.26331                   
-##           stim_abs    0.010441 0.10218  -0.87            
-##           baseline    0.005108 0.07147  -0.28  0.29      
-##           pupil       0.082174 0.28666   0.13 -0.15  0.48
-##  Residual             0.202703 0.45023                   
+##  Groups   Name           Variance Std.Dev. Corr                   
+##  subj_idx (Intercept)    0.054864 0.23423                         
+##           baseline       0.005018 0.07084  -0.26                  
+##           pupil          0.081198 0.28495   0.11  0.50            
+##           MotConMotInCon 0.002701 0.05197  -0.42  0.16  0.13      
+##           MotConMotCon   0.001240 0.03521   0.22 -0.26  0.16 -0.10
+##  Residual                0.204552 0.45227                         
 ## Number of obs: 10861, groups:  subj_idx, 38
 ## 
 ## Fixed effects:
-##             Estimate Std. Error       df t value Pr(&gt;|t|)    
-## (Intercept)  1.40677    0.04305 36.96181  32.678  &lt; 2e-16 ***
-## stim_abs    -0.28299    0.01840 37.01489 -15.383  &lt; 2e-16 ***
-## baseline     0.01758    0.01258 31.45774   1.397  0.17206    
-## pupil        0.13704    0.04819 36.80653   2.844  0.00723 ** 
+##                  Estimate Std. Error         df t value Pr(&gt;|t|)    
+## (Intercept)     1.420e+00  3.887e-02  3.736e+01  36.543  &lt; 2e-16 ***
+## stim_abs       -2.837e-01  8.012e-03  1.070e+04 -35.403  &lt; 2e-16 ***
+## baseline        1.828e-02  1.249e-02  3.130e+01   1.463  0.15351    
+## pupil           1.408e-01  4.793e-02  3.689e+01   2.939  0.00566 ** 
+## MotConMotInCon  5.707e-03  1.381e-02  3.577e+01   0.413  0.68189    
+## MotConMotCon   -3.958e-02  1.199e-02  3.718e+01  -3.302  0.00213 ** 
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 ## 
 ## Correlation of Fixed Effects:
-##          (Intr) stm_bs baseln
-## stim_abs -0.803              
-## baseline -0.258  0.241       
-## pupil     0.118 -0.127  0.463</code></pre>
-<pre class="r"><code>confint(res_rt, method = &quot;Wald&quot;)</code></pre>
-<pre><code>##                    2.5 %      97.5 %
-## .sig01                NA          NA
-## .sig02                NA          NA
-## .sig03                NA          NA
-## .sig04                NA          NA
-## .sig05                NA          NA
-## .sig06                NA          NA
-## .sig07                NA          NA
-## .sig08                NA          NA
-## .sig09                NA          NA
-## .sig10                NA          NA
-## .sigma                NA          NA
-## (Intercept)  1.322392777  1.49114424
-## stim_abs    -0.319050638 -0.24693930
-## baseline    -0.007074866  0.04222581
-## pupil        0.042599950  0.23148422</code></pre>
+##             (Intr) stm_bs baseln pupil  MtCMIC
+## stim_abs    -0.072                            
+## baseline    -0.233  0.002                     
+## pupil        0.103  0.006  0.478              
+## MotCnMtInCn -0.359 -0.013  0.081  0.080       
+## MotConMotCn -0.022  0.011 -0.128  0.070  0.319</code></pre>
+<pre class="r"><code>#confint(res_rt, method = &quot;Wald&quot;)</code></pre>
 </div>
 <div id="zero-order-effects-of-baseline" class="section level3">
 <h3>zero order effects of baseline</h3>
@@ -581,24 +577,24 @@ summary(res_baseline)</code></pre>
 ## 
 ## Random effects:
 ##  Groups   Name           Variance Std.Dev. Corr       
-##  subj_idx (Intercept)    0.030147 0.1736              
-##           MotConMotInCon 0.003103 0.0557    0.06      
-##           MotConNoMot    0.044563 0.2111   -0.49  0.51
-##  Residual                0.968310 0.9840              
+##  subj_idx (Intercept)    0.03014  0.17361             
+##           MotConNoMot    0.04456  0.21110  -0.49      
+##           MotConMotInCon 0.00310  0.05568   0.06  0.51
+##  Residual                0.96831  0.98403             
 ## Number of obs: 10861, groups:  subj_idx, 38
 ## 
 ## Fixed effects:
 ##                  Estimate Std. Error         df t value Pr(&gt;|t|)  
-## (Intercept)     0.0009151  0.0323233 35.8021323   0.028   0.9776  
-## MotConMotInCon -0.0002367  0.0250052 37.2530251  -0.009   0.9925  
-## MotConNoMot    -0.0721931  0.0411378 37.0978212  -1.755   0.0875 .
+## (Intercept)     0.0009152  0.0323210 35.8069245   0.028   0.9776  
+## MotConNoMot    -0.0721932  0.0411375 37.0981570  -1.755   0.0875 .
+## MotConMotInCon -0.0002369  0.0250041 37.2099612  -0.009   0.9925  
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 ## 
 ## Correlation of Fixed Effects:
-##             (Intr) MtCMIC
-## MotCnMtInCn -0.294       
-## MotConNoMot -0.548  0.398</code></pre>
+##             (Intr) MtCnNM
+## MotConNoMot -0.548       
+## MotCnMtInCn -0.294  0.398</code></pre>
 <pre class="r"><code>#confint(res_baseline, method = &#39;Wald&#39;)</code></pre>
 </div>
 <div id="zero-order-effects-of-baseline-neutral-trials" class="section level3">

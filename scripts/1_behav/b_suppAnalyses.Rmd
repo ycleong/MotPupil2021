@@ -23,8 +23,8 @@ sem <-
   function(x) {sd(x,na.rm = T) / sqrt(length(x))}
 
 # myPalette <- c("#d95f02","#1b9e77","#7570b3") 
-# RTPalette <- c("#d7191c","#2c7bb6","#fdae61")
 
+RTPalette <- c("#2c7bb6","#d7191c","#fdae61")
 myPalette2 <- c("#d95f02","#7570b3") 
 
 redo_calc = 1;
@@ -173,13 +173,106 @@ res = glmer(response ~ stim + condition + (stim + condition |subj_idx),
 summary(res)
 ```
 
-### Exclude participants who said they were biased
+### Pupil analyses by RT quantile
+```{r fig.width = 4, fig.height=3.5}
+##### Data wrangling
+DDM_pupil = read.csv("../../data/1_behav/DataAll_pupil.csv", header = T)
+
+DDM_pupil$subj_idx = factor(DDM_pupil$subj_idx)
+DDM_pupil$condition = factor(DDM_pupil$condition) 
+DDM_pupil$condition = revalue(DDM_pupil$condition, c("-1"="Face", "0"="Neutral", "1"="Scene"))
+DDM_pupil$condition = relevel(DDM_pupil$condition, ref="Neutral")
+
+DDM_pupil$MotCon = factor(DDM_pupil$MotCon) 
+DDM_pupil$MotCon = revalue(DDM_pupil$MotCon, c("-1"="MotInCon", "0"="NoMot", "1"="MotCon"))
+
+DDM_pupil$log_rt = log(DDM_pupil$rt)
+
+DDM_pupil$stim_n = dplyr::recode(DDM_pupil$stim, 
+                        `-1.5`=33,
+                        `-0.5`=43,
+                        `0`=48,
+                        `0.5`=53,
+                        `1.5`=63)
+
+DDM_pupil$stim_abs = abs(DDM_pupil$stim)
+
+DDM_pupil = as.data.frame(DDM_pupil)
+
+##### plot by RT quantile
+DDM_Mot = subset(DDM_pupil,MotCon != "NoMot" & stim_n == 48)
+DDM_Mot$MotCon = droplevels(DDM_Mot$MotCon)
+
+RT_q = group_by(DDM_Mot,subj_idx) %>%
+  dplyr::summarise(q1 = quantile(rt, 0.25),q2 = quantile(rt,0.50),q3 = quantile(rt,0.75))
+
+DDM_Mot = left_join(DDM_Mot, RT_q)
+
+DDM_Mot$Quantile= ifelse(DDM_Mot$rt < DDM_Mot$q1,
+                       'Q1', ifelse(DDM_Mot$rt < DDM_Mot$q2,
+                       'Q2', ifelse(DDM_Mot$rt < DDM_Mot$q3,
+                       'Q3',
+                       'Q4')))
+
+# plot all
+DDM_subj_pupil = group_by(DDM_Mot, subj_idx, MotCon, Quantile) %>%
+  dplyr::summarise(pupil = mean(pupil), nTrials = n())
+
+DDM_summary_pupil = DDM_subj_pupil %>%
+  group_by(Quantile, MotCon) %>%
+    dplyr::summarise(se = sd(pupil)/sqrt(37), pupil = mean(pupil), mean_nTrials = mean(nTrials)) 
+
+ggplot(DDM_summary_pupil, aes(x=Quantile, y=pupil, fill=MotCon)) +
+   geom_bar(stat="identity", width = 0.5,position = "dodge") +
+   geom_errorbar(aes(ymin=pupil-se, ymax=pupil+se), width=0.1, position = position_dodge(0.5)) +
+   theme(legend.position = 'none',
+      panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"),
+        axis.text.x  = element_text(size=14,color="black"),
+        axis.text.y  = element_text(size=14,color="black"),
+        axis.title.x = element_text(size=16),
+        axis.title.y = element_text(size=16)) +
+  scale_fill_manual(values=RTPalette) +
+  ylab('Evoked pupil response (z)') +
+  xlab('RT Quantile')
+
+```
+
 ```{r}
-DDM_All$condition = relevel(DDM_All$condition, ref = 'Scene')
+##### Test quadratic effects
+DDM_pupil = read.csv("../../data/1_behav/DataAll_pupil.csv", header = T)
 
-res = glmer(response ~ stim + condition + (stim + condition |subj_idx),
-            subset(DDM_All, (subj_idx %in% c('10','27','28','29','35','1','2','5','12','16','17','19','23','24','25','26','32','37'))),
-                   family = binomial(link="logit"), control = glmerControl(calc.derivs = FALSE))
+DDM_pupil$subj_idx = factor(DDM_pupil$subj_idx)
+DDM_pupil$condition = factor(DDM_pupil$condition) 
+DDM_pupil$condition = revalue(DDM_pupil$condition, c("-1"="Face", "0"="Neutral", "1"="Scene"))
+DDM_pupil$condition = relevel(DDM_pupil$condition, ref="Neutral")
 
-summary(res)
+DDM_pupil$MotCon = factor(DDM_pupil$MotCon) 
+DDM_pupil$MotCon = revalue(DDM_pupil$MotCon, c("-1"="MotInCon", "0"="NoMot", "1"="MotCon"))
+
+DDM_pupil$log_rt = log(DDM_pupil$rt)
+
+DDM_pupil$stim_n = dplyr::recode(DDM_pupil$stim, 
+                        `-1.5`=33,
+                        `-0.5`=43,
+                        `0`=48,
+                        `0.5`=53,
+                        `1.5`=63)
+
+DDM_pupil$stim_abs = abs(DDM_pupil$stim)
+
+DDM_pupil = as.data.frame(DDM_pupil)
+
+DDM_Mot = subset(DDM_pupil,MotCon != "NoMot")
+DDM_Mot$MotCon = droplevels(DDM_Mot$MotCon)
+
+res_pupilMotCon_RT = 
+  glmer(MotCon ~ stim_abs + baseline + pupil + poly(rt,2) + (baseline + pupil|subj_idx),
+       DDM_Mot, family = binomial(link="logit"), control = glmerControl(calc.derivs = FALSE))
+
+summary(res_pupilMotCon_RT)
+
+#confint(res_pupilMotCon_RT, method = "Wald")
 ```
