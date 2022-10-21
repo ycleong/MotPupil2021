@@ -23,7 +23,7 @@ sem <-
 myPalette <- c("#d95f02","#1b9e77","#7570b3") 
 RTPalette <- c("#d7191c","#2c7bb6","#fdae61")
 
-redo_calc = 0
+redo_calc = 1
 ```
 
 ### Load Data and Run Models
